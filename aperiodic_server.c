@@ -64,7 +64,7 @@ static long timespec_diff_ns(const struct timespec *end, const struct timespec *
 }
 
 /////////////////////// Pequeno "trabalho" de 5ms para simular carga
-static void busy_ms(int us) {
+static void busy_us(int us) {
     struct timespec req = {0};
     req.tv_nsec = us * 1000;
     nanosleep(&req, NULL);
@@ -75,7 +75,7 @@ void sort_act_job(void *arg) {
     int id = *(int *)arg;
     printf("[SERVIDOR] Executando job SORT_ACT %d\n", id);
 
-    busy_ms(700); // simula tempo de processamento
+    busy_us(700); // simula tempo de processamento
 
     free(arg);
 }
@@ -140,7 +140,7 @@ void *periodic_task(void *arg) {
     while (1) {
         timespec_add_ns(&next_release, p->period_ns);
         printf("[%s] executando\n", p->name);
-        busy_ms(5 * 1000); // cada tarefa periódica consome ~5ms
+        busy_us(5 * 1000); // cada tarefa periódica consome ~5ms
         clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_release, NULL);
     }
     return NULL;

@@ -14,6 +14,14 @@
 #define NS_PER_SEC 1000000000L
 #define NS_PER_MS 1000000L
 
+long now_ns() {
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return t.tv_sec * NS_PER_SEC + t.tv_nsec;
+}
+
+long request_timestamps[10000];
+
 /////////////////////// FILA DE REQUISIÇÕES APERIÓDICAS ///////////////////////
 typedef void (*job_func_t)(void *arg);
 
@@ -73,9 +81,19 @@ static void busy_us(int us) {
 /////////////////////// JOB APERIÓDICO ///////////////////////
 void sort_act_job(void *arg) {
     int id = *(int *)arg;
-    printf("[SERVIDOR] Executando job SORT_ACT %d\n", id);
 
-    busy_us(700); // simula tempo de processamento
+    long t_start = now_ns();
+    long latency = t_start - request_timestamps[id];
+
+    printf("[SERVIDOR] START job %d | latency=%ld us\n", id, latency / 1000);
+
+    // Execução simulada
+    busy_us(700);
+
+    long t_end = now_ns();
+    long exec_time = t_end - t_start;
+
+    printf("[SERVIDOR] END   job %d | exec=%ld us\n", id, exec_time / 1000);
 
     free(arg);
 }
@@ -139,7 +157,7 @@ void *periodic_task(void *arg) {
 
     while (1) {
         timespec_add_ns(&next_release, p->period_ns);
-        printf("[%s] executando\n", p->name);
+        // printf("[%s] executando\n", p->name);
         busy_us(5 * 1000); // cada tarefa periódica consome ~5ms
         clock_nanosleep(CLOCK_MONOTONIC, TIMER_ABSTIME, &next_release, NULL);
     }
@@ -166,7 +184,12 @@ void *aperiodic_generator(void *arg) {
             if (ch == 'q') {
                 int *id = malloc(sizeof(int));
                 *id = ++counter;
-                printf("[GERADOR] nova requisição aperiódica %d\n", *id);
+
+                long t_request = now_ns();
+                request_timestamps[*id] = t_request;
+
+                printf("[GERADOR] nova req %d (t=%ld)\n", *id, t_request);
+
                 enqueue_job(sort_act_job, id);
             }
         }
@@ -221,10 +244,10 @@ int main(void) {
     // gerador pode ter prioridade menor (não precisa ser RT)
     pthread_create(&th_gen, NULL, aperiodic_generator, NULL);
 
-    printf("Rodando por 10 segundos...\n");
+    // printf("Rodando por 10 segundos...\n");
     sleep(10);
 
-    printf("Encerrando (para exemplo simples vamos apenas sair do processo).\n");
+    // printf("Encerrando (para exemplo simples vamos apenas sair do processo).\n");
     // Em código real você sinalizaria as threads para sair, etc.
     return 0;
 }
